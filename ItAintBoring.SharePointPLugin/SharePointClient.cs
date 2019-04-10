@@ -5,11 +5,18 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Net.Http;
 
-namespace ItAintBoring.SharePointPLugin
+namespace ItAintBoring.SharePointPlugin
 {
+
+    public class AccessToken
+    {
+        public string Token { get; set; }
+        public DateTime ExpirationDate { get; set; }
+    }
+
     public class SharePointClient
     {
-        private string token = null;
+        private AccessToken Token = null;
 
         string clientId = null;
         string tenantId = null;
@@ -25,16 +32,22 @@ namespace ItAintBoring.SharePointPLugin
             
         }
 
-        public async Task<string> GetToken()
+        /// <summary>
+        /// Get the token from Sharepoint
+        /// </summary>
+        /// <returns></returns>
+        public async Task GetToken(bool forceRefresh = false)
         {
+            if (!forceRefresh && Token != null && Token.ExpirationDate >= DateTime.Now)
+            {
+                return;
+            }
+
+            string responseBody =  null;
             using (var httpClient = new HttpClient())
             {
-                
-                
                 try
                 {
-                    //StringContent queryString = new StringContent("");
-                    
                     FormUrlEncodedContent content = new FormUrlEncodedContent(
                         new[]
                         {
@@ -43,34 +56,76 @@ namespace ItAintBoring.SharePointPLugin
                             new KeyValuePair<string, string>("client_secret", clientKey),
                             new KeyValuePair<string, string>("resource", $"00000003-0000-0ff1-ce00-000000000000/{siteRoot}@{tenantId}")
                         });
-
                     string url = $"https://accounts.accesscontrol.windows.net/{tenantId}/tokens/OAuth/2";
                     HttpResponseMessage response = await httpClient.PostAsync(new Uri(url), content);
-
                     //response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
-
+                    responseBody = await response.Content.ReadAsStringAsync();
                     response.EnsureSuccessStatusCode();
-                    Dictionary<string, string> tokenAttributes = new Dictionary<string, string>();
+                    //Dictionary<string, string> tokenAttributes = new Dictionary<string, string>();
+                    responseBody = responseBody.Replace("{", "").Replace("}", "");
                     string[] tokenData = responseBody.Split(',');
+                    Token = new AccessToken();
                     foreach(var s in tokenData)
                     {
-                        string[] pair = s.Split(':');
-                        tokenAttributes.Add(pair[0], pair[1]);
+                        string[] pair = s.Replace("\"", "").Split(':');
+                        if(pair[0] == "expires_in")
+                        {
+                            Token.ExpirationDate = DateTime.Now.AddSeconds(int.Parse(pair[1]) - 600);
+                        }
+                        if (pair[0] == "access_token")
+                        {
+                            Token.Token = pair[1];
+                        }
+                        //tokenAttributes.Add(pair[0], pair[1]);
                     }
-
-                    //StringContent queryString = new StringContent(data);
-                    //var response = httpClient.PostStringAsync().Result;
-                    //"access_token"
-                    response = response;
                 }
                 catch(Exception ex)
                 {
-                    ex = ex;
+                    throw new Exception(responseBody, ex);
                 }
             }
-            return "";
+        }
+
+        /// <summary>
+        /// Get the token from Sharepoint
+        /// </summary>
+        /// <returns></returns>
+        private async Task<string> RunQueryInternal(string api, string json)
+        {
+            string responseBody = null;
+            using (var httpClient = new HttpClient())
+            {
+                try
+                {
+                    await GetToken();//Get/refesh the token
+
+                    string url = $"https://{siteRoot}/_api/web/{api}";
+                    StringContent content = new StringContent(json);
+                    content.Headers.Clear();
+                    content.Headers.Add("Content-Type", "application/json;odata=verbose");
+
+                    HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
+                    request.Content = content;
+                    request.Headers.Add("Authorization", $"Bearer {Token.Token}");
+                    request.Headers.Add("Accept", "application/json;odata=verbose");
+
+                    HttpResponseMessage response = await httpClient.SendAsync(request);
+
+                    responseBody = await response.Content.ReadAsStringAsync();
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(responseBody, ex);
+                }
+            }
+            return responseBody;
+        }
+
+        public string RunQuery(string api, string json)
+        {
+            var t = Task.Run<string>(async () => await RunQueryInternal(api, json));
+            return t.Result;
         }
     }
 }

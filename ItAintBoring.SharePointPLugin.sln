@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27428.2037
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ItAintBoring.SharePointPLugin", "ItAintBoring.SharePointPLugin\ItAintBoring.SharePointPLugin.csproj", "{6ED9A072-9D49-40B7-9F8D-C14CDECA4961}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ItAintBoring.SharePointPlugin", "ItAintBoring.SharePointPLugin\ItAintBoring.SharePointPlugin.csproj", "{6ED9A072-9D49-40B7-9F8D-C14CDECA4961}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
